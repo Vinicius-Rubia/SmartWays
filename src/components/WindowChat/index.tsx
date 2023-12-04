@@ -1,15 +1,17 @@
 import React, { ChangeEvent, useEffect, useRef, useState } from "react";
-import IconChat from "../../assets/icons/smartways_logo.svg";
 import { IoMdSend } from "react-icons/io";
 import { useDispatch } from "react-redux";
-import { ChatMessages } from "../ChatMessages";
+import IconChat from "../../assets/icons/smartways_logo.svg";
+import { MessageResponse } from "../../interfaces/responses/bot";
 import { setMessages } from "../../redux/chatSlice";
 import { Bot } from "../../services/Bot";
-import { MessageResponse } from "../../interfaces/responses/bot";
+import { ChatMessages } from "../ChatMessages";
 
 export const WindowChat: React.FC = () => {
   const [message, setMessage] = useState("");
   const [responseIA, setResponseIA] = useState<boolean>(true);
+  const [countdown, setCountdown] = useState(20);
+  const [isInputDisabled, setIsInputDisabled] = useState(false);
   const dispatch = useDispatch();
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -24,6 +26,8 @@ export const WindowChat: React.FC = () => {
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
+    setIsInputDisabled(true);
+    setCountdown(20);
 
     dispatch(setMessages({ author: "user", message: message }));
     setMessage("");
@@ -31,7 +35,7 @@ export const WindowChat: React.FC = () => {
     setResponseIA(false);
 
     
-    const responseMessage = await Bot.post("completions", message) as MessageResponse;
+    const responseMessage = await Bot.post("completions") as MessageResponse;
     dispatch(setMessages({ author: "IA", message: responseMessage.choices[0].message.content }));
     setResponseIA(true);
   };
@@ -47,6 +51,26 @@ export const WindowChat: React.FC = () => {
   useEffect(() => {
     handleScrollDown();
   }, [responseIA]);
+
+  useEffect(() => {
+    let timer: number;
+
+    if (isInputDisabled) {
+      timer = setInterval(() => {
+        setCountdown((prevCountdown) => prevCountdown - 1);
+      }, 1000);
+    }
+
+    return () => {
+      clearInterval(timer);
+    };
+  }, [isInputDisabled]);
+
+  useEffect(() => {
+    if (countdown === 0) {
+      setIsInputDisabled(false);
+    }
+  }, [countdown]);
 
   return (
     <div className="bg-dark-medium flex-1 flex flex-col justify-between">
@@ -77,13 +101,13 @@ export const WindowChat: React.FC = () => {
         >
           <div className="w-full flex items-center relative bg-dark-light text-white-blue px-3 h-10 rounded-[10px] text-xs md:text-sm disabled:cursor-not-allowed disabled:opacity-30">
             <input
-              disabled={responseIA === false}
+              disabled={isInputDisabled}
               className="w-full bg-dark-light border-none outline-none"
               type="text"
               maxLength={100}
               placeholder={
-                responseIA === false
-                  ? "Aguarde a IA terminar de responder..."
+                isInputDisabled
+                  ? `Aguarde a IA terminar de responder... ${countdown > 0 && `Aguarde ${countdown} segundos`}`
                   : "Digite sua mensagem"
               }
               value={message}
